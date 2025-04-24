@@ -24,6 +24,7 @@ import org.springframework.hateoas.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
@@ -53,6 +54,7 @@ public class ProductController {
 
         return ResponseEntity.ok(pagedResourcesAssembler.toModel(products));
     }
+
     @Operation(summary = "Buscar produto por ID",
             description = "Retorna um produto específico baseado no ID fornecido")
     @ApiResponses({
@@ -125,6 +127,26 @@ public class ProductController {
         return ResponseEntity.ok(pagedResourcesAssembler.toModel(products));
     }
 
+    @Operation(summary = "Listar produtos com reabastecimento atrasado",
+            description = "Retorna uma lista paginada de produtos com data de reabastecimento vencida")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Busca realizada com sucesso"),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor")
+    })
+    @GetMapping(value = "/overdue-restock", produces = MediaTypes.HAL_JSON_VALUE)
+    @Timed(value = "product.overdue.restock.list")
+    public ResponseEntity<PagedModel<EntityModel<ProductResponse>>> listOverdueRestockProducts(
+            Pageable pageable) {
+        Page<ProductResponse> products = productService.findProductsWithOverdueRestock(pageable)
+                .map(product -> {
+                    ProductResponse response = ProductResponse.fromProduct(product);
+                    return addLinks(response);
+                });
+
+        return ResponseEntity.ok(pagedResourcesAssembler.toModel(products));
+    }
+
+
     private ProductResponse addLinks(ProductResponse product) {
         product.add(linkTo(methodOn(ProductController.class)
                 .getProduct(product.getId())).withSelfRel());
@@ -143,6 +165,32 @@ public class ProductController {
                     .withRel("restock-needed"));
         }
 
+        if (product.getRestockDate() != null &&
+                product.getRestockDate().isBefore(LocalDate.now())) {
+            product.add(linkTo(methodOn(ProductController.class)
+                    .updateStock(product.getId(), null))
+                    .withRel("update-restock-date"));
+        }
+
+
         return product;
+    }
+
+    @Operation(summary = "Atualizar data de reabastecimento",
+            description = "Atualiza a data prevista de reabastecimento de um produto específico")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Data atualizada com sucesso"),
+            @ApiResponse(responseCode = "404", description = "Produto não encontrado"),
+            @ApiResponse(responseCode = "400", description = "Data inválida")
+    })
+    @PutMapping(value = "/{id}/restock-date", produces = MediaTypes.HAL_JSON_VALUE)
+    @Timed(value = "product.restock.date.update")
+    public ResponseEntity<ProductResponse> updateRestockDate(
+            @PathVariable UUID id,
+            @RequestParam LocalDate restockDate) {
+        return ResponseEntity.ok(
+                addLinks(ProductResponse.fromProduct(
+                        productService.updateRestockDate(id, restockDate)))
+        );
     }
 }

@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Slf4j
@@ -49,6 +50,13 @@ public class ProductService {
             log.error("Product with SKU {} already exists", request.getSku());
             throw new IllegalArgumentException("Produto com SKU já existente");
         }
+// Se a data de reabastecimento não for informada, define para 30 dias no futuro
+        LocalDate restockDate = request.getRestockDate() != null ?
+                request.getRestockDate() : LocalDate.now().plusDays(30);
+
+        if (restockDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("A data de reabastecimento não pode ser no passado");
+        }
 
         var product = Product.create(
                 request.getName(),
@@ -56,7 +64,9 @@ public class ProductService {
                 request.getSku(),
                 request.getPrice(),
                 request.getInitialStock(),
-                request.getMinimumStock()
+                request.getMinimumStock(),
+                restockDate
+
         );
 
         meterRegistry.counter("product.created").increment();
@@ -144,6 +154,14 @@ public class ProductService {
         return product.getStockQuantity() >= quantity;
     }
 
+    @Transactional
+    public Product updateRestockDate(UUID productId, LocalDate restockDate) {
+        var product = findById(productId);
+        product.updateRestockDate(restockDate);
+        product.setLastNotificationSent(null); // Reseta a última notificação
+        return productRepository.save(product);
+    }
+
     private void sendLowStockNotification(Product product, Customer customer) {
         if (customer == null || (customer.getEmail() == null && customer.getPhones() == null)) {
             log.warn("Não foi possível enviar notificação: cliente ou contatos não informados");
@@ -152,15 +170,15 @@ public class ProductService {
 
         String subject = "Alerta de Estoque Baixo - " + product.getName();
         String content = String.format("""
-                    Produto com estoque baixo:
-                    
-                    Nome: %s
-                    SKU: %s
-                    Estoque Atual: %d
-                    Estoque Mínimo: %d
-                    
-                    Por favor, providencie a reposição do estoque.
-                    """,
+                        Produto com estoque baixo:
+                        
+                        Nome: %s
+                        SKU: %s
+                        Estoque Atual: %d
+                        Estoque Mínimo: %d
+                        
+                        Por favor, providencie a reposição do estoque.
+                        """,
                 product.getName(),
                 product.getSku(),
                 product.getStockQuantity(),
@@ -182,5 +200,15 @@ public class ProductService {
             meterRegistry.counter("product.stock.notification.failed").increment();
         }
     }
+
+    @Timed(value = "product.overdue.restock")
+    @Transactional(readOnly = true)
+    public Page<Product> findProductsWithOverdueRestock(Pageable pageable) {
+        log.info("Buscando produtos com data de reabastecimento atrasada");
+        return productRepository.findProductsWithOverdueRestockDate(
+                LocalDate.now(),
+                pageable);
+    }
+
 }
 

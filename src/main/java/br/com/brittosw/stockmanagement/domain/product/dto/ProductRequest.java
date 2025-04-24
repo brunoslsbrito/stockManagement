@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Schema(description = "Requisição para criação de novo produto")
@@ -38,4 +39,7 @@ public class ProductRequest {
     @NotNull(message = "Estoque mínimo é obrigatório")
     @Min(value = 0, message = "Estoque mínimo não pode ser negativo")
     private Integer minimumStock;
+
+    private LocalDate restockDate;
+
 }

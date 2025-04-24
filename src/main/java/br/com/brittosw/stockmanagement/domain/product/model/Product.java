@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -48,8 +49,15 @@ public class Product {
     @Column(nullable = false)
     private ProductStatus status;
 
+    @Column(name = "restock_date")
+    private LocalDate restockDate;
+
+    @Column(name = "last_notification_sent")
+    private LocalDate lastNotificationSent;
+
+
     public static Product create(String name, String description, String sku, 
-                               BigDecimal price, Integer stockQuantity, Integer minimumStock) {
+                               BigDecimal price, Integer stockQuantity, Integer minimumStock, LocalDate restockDate) {
         return Product.builder()
                 .name(name)
                 .description(description)
@@ -60,6 +68,7 @@ public class Product {
                 .status(ProductStatus.ACTIVE)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
+                .restockDate(restockDate)
                 .build();
     }
 
@@ -86,4 +95,25 @@ public class Product {
         this.price = newPrice;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void setRestockDate(LocalDate restockDate) {
+        this.restockDate = restockDate;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setLastNotificationSent(LocalDate lastNotificationSent) {
+        this.lastNotificationSent = lastNotificationSent;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+
+    public void updateRestockDate(LocalDate newRestockDate) {
+        if (newRestockDate != null && newRestockDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("A data de reabastecimento não pode ser no passado");
+        }
+        setRestockDate(newRestockDate);
+        setLastNotificationSent(null);
+    }
+
+
 }
