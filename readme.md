@@ -5,20 +5,13 @@ Um sistema completo de gerenciamento de estoque desenvolvido com Spring Boot, of
 ## 🚀 Funcionalidades
 
 - Gestão de Produtos
-    - Cadastro e atualização de produtos
-    - Controle de estoque
-    - Alertas de estoque baixo via email
-    - Cache para otimização de consultas
-
-- Gestão de Pedidos
-    - Criação e confirmação de pedidos
-    - Adição/remoção de itens
-    - Validação automática de estoque
-
 - Gestão de Clientes
-    - Cadastro completo de clientes
-    - Validação de documentos
-    - Histórico de pedidos
+- Gestão de Pedidos
+- Controle de Estoque
+- Notificações por Email e Whatsapp Business
+- Monitoramento em Tempo Real
+- Relatórios e Métricas
+
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -55,6 +48,17 @@ Um sistema completo de gerenciamento de estoque desenvolvido com Spring Boot, of
 - MongoDB 6+
 - Redis 7+
 - RabbitMQ 3.12+
+
+
+O projeto segue uma arquitetura em camadas com as seguintes características:
+
+- **Domain-Driven Design (DDD)**
+- **Clean Architecture**
+- **Event-Driven Architecture**
+- **API REST**
+- **Caching**
+- **Monitoramento e Métricas**
+
 
 ## 🔧 Configuração
 
