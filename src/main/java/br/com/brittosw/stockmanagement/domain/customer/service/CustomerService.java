@@ -4,8 +4,6 @@ import br.com.brittosw.stockmanagement.domain.customer.dto.AddressRequest;
 import br.com.brittosw.stockmanagement.domain.customer.dto.CustomerRequest;
 import br.com.brittosw.stockmanagement.domain.customer.model.Customer;
 import br.com.brittosw.stockmanagement.domain.customer.repository.CustomerRepository;
-import br.com.brittosw.stockmanagement.domain.product.model.Product;
-import io.micrometer.core.annotation.Timed;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -35,13 +33,13 @@ public class CustomerService {
                 request.getDocument()
         );
 
-        if (request.getAddress() != null) {
-            customer.addAddress(request.getAddress().toAddress());
-        }
+        Optional.ofNullable(request.getAddress())
+                .map(AddressRequest::toAddress)
+                .ifPresent(customer::addAddress);
 
-        if (request.getPhone() != null) {
-            customer.addPhone(request.getPhone());
-        }
+        Optional.ofNullable(request.getPhone())
+                .ifPresent(customer::addPhone);
+
 
         return customerRepository.save(customer);
     }
@@ -64,7 +62,6 @@ public class CustomerService {
                 .orElseThrow(() -> new EntityNotFoundException("Cliente não encontrado"));
 
         customer.addAddress(request.toAddress());
-
         return customerRepository.save(customer);
     }
 
