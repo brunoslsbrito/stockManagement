@@ -11,6 +11,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,4 +33,14 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @QueryHints({@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000")})
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     Optional<Product> findByIdWithLock(UUID id);
+
+    @Query("SELECT p FROM Product p WHERE p.restockDate <= :date AND " +
+            "(p.lastNotificationSent IS NULL OR p.lastNotificationSent < :date)")
+    List<Product> findByRestockDateLessThanEqualAndLastNotificationSentNot(
+            LocalDate date, LocalDate notificationDate);
+
+    @Query("SELECT p FROM Product p WHERE p.restockDate < :currentDate")
+    Page<Product> findProductsWithOverdueRestockDate(
+            LocalDate currentDate,
+            Pageable pageable);
 }
