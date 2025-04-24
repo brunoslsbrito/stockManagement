@@ -18,8 +18,13 @@ spring:
   mail: # <-- Uncommented
     host: smtp.gmail.com # Make sure these values are correct for your provider
     port: 587
-
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       # mail.smtp.starttls.required: true # Often optional, depends on provider
+  whatsapp:
+    api:
+      url: 'https://graph.facebook.com/v22.0/662847286904556/messages'
+  notification:
+    whatsapp:
+      enabled: true
