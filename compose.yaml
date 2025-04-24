@@ -26,3 +26,67 @@ services:
     image: 'redis:latest'
     ports:
       - '6379'
+  zookeeper:
+    image: zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      - ZOO_MY_ID=1
+      - ZOO_SERVERS=server.1=zookeeper:2888:3888;2181
+    networks:
+      - app-network
+    healthcheck:
+      test: echo stat | nc localhost 2181
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  app-network:
+    driver: bridge
+
+#  config-server:
+#    container_name: config-server
+#    image: brittows/config-server:latest  # ajuste para sua imagem
+#    ports:
+#      - "8888:8888"
+#    environment:
+#      - SPRING_CLOUD_CONFIG_SERVER_GIT_URI=https://github.com/seu-usuario/seu-repo-config  # ajuste para seu repositório
+#      - SPRING_CLOUD_CONFIG_SERVER_GIT_DEFAULT_LABEL=main
+#      - SPRING_CLOUD_CONFIG_SERVER_GIT_SEARCH_PATHS=config  # pasta onde estão as configurações
+#      # Se seu repositório for privado, adicione as credenciais:
+#      # - SPRING_CLOUD_CONFIG_SERVER_GIT_USERNAME=seu-usuario
+#      # - SPRING_CLOUD_CONFIG_SERVER_GIT_PASSWORD=seu-token
+#    networks:
+#      - stock-network
+#    healthcheck:
+#      test: [ "CMD", "curl", "-f", "http://localhost:8888/actuator/health" ]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+#      start_period: 40s
+#    restart: unless-stopped
+#
+#  # Seu serviço principal (stock-management)
+#  stock-management:
+#    container_name: stock-management
+#    image: brittows/stock-management:latest  # ajuste para sua imagem
+#    ports:
+#      - "8080:8080"
+#    environment:
+#      - SPRING_PROFILES_ACTIVE=prod
+#      - SPRING_CONFIG_IMPORT=optional:configserver:http://config-server:8888
+#      - SPRING_CLOUD_CONFIG_FAIL_FAST=true
+#    depends_on:
+#      config-server:
+#        condition: service_healthy
+#    networks:
+#      - stock-network
+#    restart: unless-stopped
+#
+#networks:
+#  stock-network:
+#    name: stock-network
+#    driver: bridge
+

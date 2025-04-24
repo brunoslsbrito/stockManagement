@@ -3,6 +3,7 @@ package br.com.brittosw.stockmanagement.model;
 import br.com.brittosw.stockmanagement.domain.product.model.Product;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.util.UUID;
 

@@ -5,8 +5,9 @@ import br.com.brittosw.stockmanagement.domain.order.model.OrderStatus;
 import br.com.brittosw.stockmanagement.domain.product.model.Product;
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDateTime;
+
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -39,20 +40,23 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<OrderItem> items;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+
     public static Order createOrder(Customer customer) {
-        return Order.builder()
-                .customer(customer)
+        Order order = Order.builder()
                 .status(OrderStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .totalAmount(BigDecimal.ZERO)
                 .items(new HashSet<>())
                 .build();
+        order.setCustomer(customer);
+        return order;
     }
+
 
     public void addItem(Product product, int quantity, BigDecimal unitPrice) {
         var orderItem = OrderItem.create(this, product, quantity, unitPrice);
@@ -60,7 +64,7 @@ public class Order {
         recalculateTotal();
     }
 
-    public void removeItem(OrderItem item) {
+    public void removeItem(OrderItem item, int quantity) {
         items.remove(item);
         recalculateTotal();
     }
@@ -78,4 +82,10 @@ public class Order {
         this.status = OrderStatus.CONFIRMED;
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+        customer.addOrder(this);
+    }
+
 }

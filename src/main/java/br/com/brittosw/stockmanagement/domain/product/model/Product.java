@@ -1,7 +1,9 @@
 package br.com.brittosw.stockmanagement.domain.product.model;
 
+import br.com.brittosw.stockmanagement.domain.product.exception.InsufficientStockException;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;

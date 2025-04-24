@@ -12,7 +12,6 @@ import org.springframework.context.event.SimpleApplicationEventMulticaster;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @SpringBootApplication
-@Configuration
 @EnableCaching
 public class StockManagementApplication {
 

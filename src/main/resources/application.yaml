@@ -1,0 +1,25 @@
+spring:
+  config:
+    import: "zookeeper:"
+  cloud:
+    zookeeper:
+      connect-string: localhost:2181
+      config:
+        enabled: true
+        root: /configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    spring:
+      # ... other config ...
+      jpa:
+        hibernate:
+          ddl-auto: update
+  mail: # <-- Uncommented
+    host: smtp.gmail.com # Make sure these values are correct for your provider
+    port: 587
+
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      # mail.smtp.starttls.required: true # Often optional, depends on provider

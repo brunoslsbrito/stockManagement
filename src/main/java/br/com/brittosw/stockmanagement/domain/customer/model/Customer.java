@@ -1,8 +1,10 @@
 package br.com.brittosw.stockmanagement.domain.customer.model;
 
 import br.com.brittosw.stockmanagement.domain.shared.model.Address;
+import br.com.brittosw.stockmanagement.model.Order;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -53,6 +55,10 @@ public class Customer {
     )
     private Set<Address> addresses = new HashSet<>();
 
+    @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<Order> orders = new HashSet<>();
+
     @Version
     private Long version;
 
@@ -84,9 +90,21 @@ public class Customer {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void update(String name, String email) {
+    public void update(String name, String email, CustomerStatus status) {
         this.name = name;
         this.email = email;
         this.updatedAt = LocalDateTime.now();
+        this.status = status;
     }
+
+    public void addOrder(Order order) {
+        this.orders.add(order);
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void removeOrder(Order order) {
+        this.orders.remove(order);
+        this.updatedAt = LocalDateTime.now();
+    }
+
 }

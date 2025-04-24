@@ -1,14 +1,16 @@
 package br.com.brittosw.stockmanagement.domain.product.service;
 
+import br.com.brittosw.stockmanagement.domain.customer.model.Customer;
 import br.com.brittosw.stockmanagement.domain.events.StockUpdatedEvent;
 import br.com.brittosw.stockmanagement.domain.product.dto.ProductRequest;
 import br.com.brittosw.stockmanagement.domain.product.dto.StockMovementRequest;
 import br.com.brittosw.stockmanagement.domain.product.model.Product;
 import br.com.brittosw.stockmanagement.domain.product.repository.ProductRepository;
+import br.com.brittosw.stockmanagement.infraestructure.email.EmailSendException;
+import br.com.brittosw.stockmanagement.infraestructure.email.EmailService;
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -16,8 +18,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +28,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProductService {
 
+    private static final int LOW_STOCK_THRESHOLD = 10;
+
     private final ProductRepository productRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final MeterRegistry meterRegistry;
+    private final EmailService emailService;
+    private final String notificationEmail = "brsalles87@gmail.com";
 
     @Timed(value = "product.create", description = "Time taken to create a product")
     @CacheEvict(value = "products", allEntries = true)
@@ -102,7 +106,7 @@ public class ProductService {
     @Timed(value = "product.stock.decrease")
     @CacheEvict(value = "products", key = "#productId")
     @Transactional
-    public Product decreaseStock(UUID productId, int quantity) {
+    public void decreaseStock(UUID productId, int quantity, Customer customer) {
         log.info("Decreasing stock for product {}: {} units", productId, quantity);
 
         var product = productRepository.findByIdWithLock(productId)
@@ -113,10 +117,61 @@ public class ProductService {
 
         product.updateStock(-Math.abs(quantity));
 
+        if (product.getStockQuantity() < LOW_STOCK_THRESHOLD) {
+            sendLowStockNotification(product, customer);
+        }
+
         eventPublisher.publishEvent(new StockUpdatedEvent(this, productId, -Math.abs(quantity)));
         meterRegistry.counter("product.stock.decreased").increment();
 
-        return productRepository.save(product);
+        productRepository.save(product);
     }
 
+
+    @Transactional(readOnly = true)
+    public boolean hasEnoughStock(Product product, int quantity, Customer customer) {
+        log.info("Checking if product {} has enough stock for {} units", product.getId(), product.getStockQuantity());
+
+        if (product.getStockQuantity() < LOW_STOCK_THRESHOLD && customer != null) {
+            log.warn("Product {} is running low on stock. Current stock: {}",
+                    product.getId(), product.getStockQuantity());
+            sendLowStockNotification(product, customer);
+        }
+
+        return product.getStockQuantity() >= quantity;
+    }
+
+    private void sendLowStockNotification(Product product, Customer customer) {
+        if (customer == null || customer.getEmail() == null) {
+            log.warn("Não foi possível enviar notificação: cliente ou email não informado");
+            return;
+        }
+
+        String subject = "Alerta de Estoque Baixo - " + product.getName();
+        String content = String.format("""
+                    Produto com estoque baixo:
+                    
+                    Nome: %s
+                    SKU: %s
+                    Estoque Atual: %d
+                    Estoque Mínimo: %d
+                    
+                    Por favor, providencie a reposição do estoque.
+                    """,
+                product.getName(),
+                product.getSku(),
+                product.getStockQuantity(),
+                product.getMinimumStock()
+        );
+
+        try {
+            emailService.sendEmail(customer.getEmail(), subject, content);
+            meterRegistry.counter("product.stock.notification.sent").increment();
+        } catch (EmailSendException e) {
+            log.error("Falha ao enviar notificação de estoque baixo para o produto {}: {}",
+                    product.getId(), e.getMessage());
+            meterRegistry.counter("product.stock.notification.failed").increment();
+        }
+    }
 }
+
