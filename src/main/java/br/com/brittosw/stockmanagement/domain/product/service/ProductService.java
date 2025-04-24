@@ -8,6 +8,7 @@ import br.com.brittosw.stockmanagement.domain.product.model.Product;
 import br.com.brittosw.stockmanagement.domain.product.repository.ProductRepository;
 import br.com.brittosw.stockmanagement.infraestructure.email.EmailSendException;
 import br.com.brittosw.stockmanagement.infraestructure.email.EmailService;
+import br.com.brittosw.stockmanagement.infraestructure.notification.NotificationFacade;
 import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.persistence.EntityNotFoundException;
@@ -35,6 +36,8 @@ public class ProductService {
     private final MeterRegistry meterRegistry;
     private final EmailService emailService;
     private final String notificationEmail = "brsalles87@gmail.com";
+    private final NotificationFacade notificationFacade;
+
 
     @Timed(value = "product.create", description = "Time taken to create a product")
     @CacheEvict(value = "products", allEntries = true)
@@ -142,8 +145,8 @@ public class ProductService {
     }
 
     private void sendLowStockNotification(Product product, Customer customer) {
-        if (customer == null || customer.getEmail() == null) {
-            log.warn("Não foi possível enviar notificação: cliente ou email não informado");
+        if (customer == null || (customer.getEmail() == null && customer.getPhones() == null)) {
+            log.warn("Não foi possível enviar notificação: cliente ou contatos não informados");
             return;
         }
 
@@ -166,6 +169,12 @@ public class ProductService {
 
         try {
             emailService.sendEmail(customer.getEmail(), subject, content);
+            notificationFacade.sendNotification(
+                    customer.getPhones().stream().findFirst().orElse(null),
+                    subject,
+                    content
+            );
+
             meterRegistry.counter("product.stock.notification.sent").increment();
         } catch (EmailSendException e) {
             log.error("Falha ao enviar notificação de estoque baixo para o produto {}: {}",
