@@ -34,7 +34,6 @@ Um sistema completo de gerenciamento de estoque desenvolvido com Spring Boot, of
     - SpringDoc OpenAPI 2.3.0
 
 - **Outros**
-    - Flyway (migrations)
     - Lombok
     - Jakarta Mail
     - Spring AI
