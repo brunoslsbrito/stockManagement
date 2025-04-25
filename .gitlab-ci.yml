@@ -1,0 +1,135 @@
+variables:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: stockmanagement
+  DOCKER_REGISTRY: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+  APP_NAME: stock-management
+  CLUSTER_NAME: stock-management-cluster
+  TASK_DEFINITION_FAMILY: stock-management-task
+  SERVICE_NAME: stock-management-service
+
+stages:
+  - test
+  - build
+  - deploy
+
+# Job para executar testes
+test:
+  stage: test
+  image: maven:3.9-eclipse-temurin-21
+  script:
+    - mvn verify
+  cache:
+    paths:
+      - .m2/repository
+  artifacts:
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+        - target/failsafe-reports/TEST-*.xml
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# Job para construir e publicar imagem Docker
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    - apk add --no-cache aws-cli
+    - aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${DOCKER_REGISTRY}
+  script:
+    - docker build -t ${DOCKER_REGISTRY}/${ECR_REPOSITORY}:${CI_COMMIT_SHA} .
+    - docker push ${DOCKER_REGISTRY}/${ECR_REPOSITORY}:${CI_COMMIT_SHA}
+    - if [ "$CI_COMMIT_BRANCH" = "main" ]; then
+      docker tag ${DOCKER_REGISTRY}/${ECR_REPOSITORY}:${CI_COMMIT_SHA} ${DOCKER_REGISTRY}/${ECR_REPOSITORY}:latest;
+      docker push ${DOCKER_REGISTRY}/${ECR_REPOSITORY}:latest;
+      fi
+  only:
+    - main
+    - develop
+
+# Job para deploy no AWS Fargate
+deploy:
+  stage: deploy
+  image:
+    name: amazon/aws-cli
+    entrypoint: [""]
+  before_script:
+    - yum install -y jq
+    - aws configure set region ${AWS_REGION}
+  script:
+    # Registrar nova definição de tarefa
+    - |
+      TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition ${TASK_DEFINITION_FAMILY} --region ${AWS_REGION})
+      NEW_TASK_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE "${DOCKER_REGISTRY}/${ECR_REPOSITORY}:${CI_COMMIT_SHA}" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | {containerDefinitions: .containerDefinitions, family: .family, taskRoleArn: .taskRoleArn, executionRoleArn: .executionRoleArn, networkMode: .networkMode, volumes: .volumes, placementConstraints: .placementConstraints, requiresCompatibilities: .requiresCompatibilities, cpu: .cpu, memory: .memory}')
+      NEW_TASK_INFO=$(aws ecs register-task-definition --region ${AWS_REGION} --cli-input-json "$NEW_TASK_DEFINITION")
+      NEW_REVISION=$(echo $NEW_TASK_INFO | jq '.taskDefinition.revision')
+
+    # Atualizar serviço com nova definição de tarefa
+    - |
+      aws ecs update-service \
+        --cluster ${CLUSTER_NAME} \
+        --service ${SERVICE_NAME} \
+        --task-definition ${TASK_DEFINITION_FAMILY}:${NEW_REVISION} \
+        --force-new-deployment
+
+    # Aguardar deploy ser concluído
+    - |
+      aws ecs wait services-stable \
+        --cluster ${CLUSTER_NAME} \
+        --services ${SERVICE_NAME}
+  only:
+    - main
+
+# Template de configuração da task definition do ECS
+.ecs-task-definition:
+  task_definition: |
+    {
+      "family": "${TASK_DEFINITION_FAMILY}",
+      "networkMode": "awsvpc",
+      "requiresCompatibilities": ["FARGATE"],
+      "cpu": "256",
+      "memory": "512",
+      "executionRoleArn": "${ECS_EXECUTION_ROLE_ARN}",
+      "taskRoleArn": "${ECS_TASK_ROLE_ARN}",
+      "containerDefinitions": [
+        {
+          "name": "${APP_NAME}",
+          "image": "${DOCKER_REGISTRY}/${ECR_REPOSITORY}:${CI_COMMIT_SHA}",
+          "essential": true,
+          "portMappings": [
+            {
+              "containerPort": 8080,
+              "protocol": "tcp"
+            }
+          ],
+          "environment": [
+            {
+              "name": "SPRING_PROFILES_ACTIVE",
+              "value": "production"
+            }
+          ],
+          "logConfiguration": {
+            "logDriver": "awslogs",
+            "options": {
+              "awslogs-group": "/ecs/${APP_NAME}",
+              "awslogs-region": "${AWS_REGION}",
+              "awslogs-stream-prefix": "ecs"
+            }
+          },
+          "healthCheck": {
+            "command": [
+              "CMD-SHELL",
+              "curl -f http://localhost:8080/actuator/health || exit 1"
+            ],
+            "interval": 30,
+            "timeout": 5,
+            "retries": 3,
+            "startPeriod": 60
+          }
+        }
+      ]
+    }

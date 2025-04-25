@@ -4,6 +4,7 @@ import br.com.brittosw.stockmanagement.domain.order.dto.OrderItemRequest;
 import br.com.brittosw.stockmanagement.domain.order.dto.OrderRequest;
 import br.com.brittosw.stockmanagement.domain.order.dto.OrderResponse;
 import br.com.brittosw.stockmanagement.domain.order.model.OrderStatus;
+import br.com.brittosw.stockmanagement.domain.order.service.OrderPublisherService;
 import br.com.brittosw.stockmanagement.domain.order.service.OrderService;
 import io.micrometer.core.annotation.Timed;
 import jakarta.validation.Valid;
@@ -26,7 +27,7 @@ import java.util.UUID;
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 public class OrderController {
-
+    private final OrderPublisherService orderPublisherService;
     private final OrderService orderService;
     private final PagedResourcesAssembler<OrderResponse> pagedResourcesAssembler;
 
@@ -51,7 +52,7 @@ public class OrderController {
         );
     }
 
-    @PostMapping(produces = MediaTypes.HAL_JSON_VALUE)
+    /*@PostMapping(produces = MediaTypes.HAL_JSON_VALUE)
     @Timed(value = "order.create")
     public ResponseEntity<OrderResponse> createOrder(
             @Valid @RequestBody OrderRequest request) {
@@ -62,6 +63,14 @@ public class OrderController {
                 .created(linkTo(methodOn(OrderController.class)
                         .getOrder(response.getId())).toUri())
                 .body(addLinks(response));
+    }
+*/
+
+    @PostMapping
+    @Timed(value = "order.create")
+    public ResponseEntity<String> createOrder(@RequestBody OrderRequest orderRequest) {
+        orderPublisherService.publishOrder(orderRequest);
+        return ResponseEntity.accepted().body("Pedido enviado para processamento");
     }
 
     @PostMapping(value = "/{id}/items", produces = MediaTypes.HAL_JSON_VALUE)

@@ -24,6 +24,8 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    private String orderNumber;
+
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
@@ -47,6 +49,7 @@ public class Order {
 
     public static Order createOrder(Customer customer) {
         Order order = Order.builder()
+                .orderNumber(generateOrderNumber())
                 .status(OrderStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -57,6 +60,9 @@ public class Order {
         return order;
     }
 
+    private static String generateOrderNumber() {
+        return "ORD-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
+    }
 
     public void addItem(Product product, int quantity, BigDecimal unitPrice) {
         var orderItem = OrderItem.create(this, product, quantity, unitPrice);

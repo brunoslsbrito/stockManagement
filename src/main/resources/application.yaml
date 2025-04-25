@@ -1,4 +1,8 @@
 spring:
+  rabbitmq:
+    listener:
+      simple:
+        acknowledge-mode: manual
   mail: # <-- Uncommented
     host: smtp.gmail.com # Make sure these values are correct for your provider
     port: 587
