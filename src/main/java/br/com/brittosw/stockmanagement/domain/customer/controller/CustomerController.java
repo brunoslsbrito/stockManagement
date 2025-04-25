@@ -4,8 +4,11 @@ package br.com.brittosw.stockmanagement.domain.customer.controller;
 import br.com.brittosw.stockmanagement.domain.customer.dto.AddressRequest;
 import br.com.brittosw.stockmanagement.domain.customer.dto.CustomerRequest;
 import br.com.brittosw.stockmanagement.domain.customer.dto.CustomerResponse;
+import br.com.brittosw.stockmanagement.domain.customer.model.Customer;
 import br.com.brittosw.stockmanagement.domain.customer.service.CustomerService;
 import io.micrometer.core.annotation.Timed;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -15,8 +18,10 @@ import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.IanaLinkRelations;
 import org.springframework.hateoas.MediaTypes;
 import org.springframework.hateoas.PagedModel;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -76,13 +81,17 @@ public class CustomerController {
 
     @PostMapping(value = "/{id}/addresses", produces = MediaTypes.HAL_JSON_VALUE)
     @Timed(value = "customer.address.add")
+    @Operation(summary = "Adiciona um novo endereço ao cliente")
     public ResponseEntity<CustomerResponse> addAddress(
             @PathVariable UUID id,
             @Valid @RequestBody AddressRequest request) {
-        return ResponseEntity.ok(
-                addLinks(CustomerResponse.fromCustomer(
-                        customerService.addAddress(id, request)))
-        );
+        try {
+            var customer = customerService.addAddress(id, request);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(addLinks(CustomerResponse.fromCustomer(customer)));
+        } catch (EntityNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+        }
     }
 
     private CustomerResponse addLinks(CustomerResponse customer) {
@@ -90,11 +99,11 @@ public class CustomerController {
                 .getCustomer(customer.getId())).withSelfRel());
 
         customer.add(linkTo(methodOn(CustomerController.class)
-                .updateCustomer(customer.getId(), null))
+                .updateCustomer(customer.getId(), CustomerRequest.builder().build()))
                 .withRel("update"));
 
         customer.add(linkTo(methodOn(CustomerController.class)
-                .addAddress(customer.getId(), null))
+                .addAddress(customer.getId(), AddressRequest.builder().build()))
                 .withRel("add-address"));
 
         customer.add(linkTo(methodOn(CustomerController.class)
@@ -103,4 +112,5 @@ public class CustomerController {
 
         return customer;
     }
+
 }
