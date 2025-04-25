@@ -2,6 +2,7 @@ package br.com.brittosw.stockmanagement.domain.customer.dto;
 
 import br.com.brittosw.stockmanagement.domain.shared.model.Address;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.Builder;
 import lombok.Data;
@@ -29,7 +30,7 @@ public class AddressRequest {
     @Pattern(regexp = "^\\d{5}-?\\d{3}$", message = "CEP inválido")
     private String zipCode;
 
-    @NotBlank(message = "Principal é obrigatório")
+    @NotNull(message = "Principal é obrigatório")
     private boolean main;
 
     public Address toAddress() {
